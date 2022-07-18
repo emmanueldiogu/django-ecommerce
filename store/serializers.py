@@ -2,7 +2,7 @@ from decimal import Decimal
 from django.db import transaction
 from rest_framework import serializers
 from .signals import order_created
-from .models import Cart, CartItem, Customer, Order, OrderItem, Product, Collection, Review
+from .models import Cart, CartItem, Customer, Order, OrderItem, Product, Collection, ProductImage, Review
 
 
 class CollectionSerializer(serializers.ModelSerializer):
@@ -13,11 +13,24 @@ class CollectionSerializer(serializers.ModelSerializer):
     products_count = serializers.IntegerField(read_only=True)
 
 
+class ProductImageSerializer(serializers.ModelSerializer):
+
+    def create(self, validated_data):
+        product_id = self.context['product_id']
+        return ProductImage.objects.create(product_id=product_id, **validated_data)
+
+    class Meta:
+        model = ProductImage
+        fields = ['id', 'image']
+
+
 class ProductSerializer(serializers.ModelSerializer):
+    images = ProductImageSerializer(many=True)
+
     class Meta:
         model = Product
-        fields = ['id', 'title', 'slug', 'description', 'unit_price',
-                  'price_with_tax', 'inventory', 'collection']
+        fields = ['id', 'title', 'description', 'slug', 'inventory',
+                  'unit_price', 'price_with_tax', 'collection', 'images']
 
     price_with_tax = serializers.SerializerMethodField(
         method_name='calculate_tax')
@@ -33,7 +46,7 @@ class ReviewSerializer(serializers.ModelSerializer):
 
     def create(self, validated_data):
         product_id = self.context['product_id']
-        Review.objects.create(product_id=product_id, **validated_data)
+        return Review.objects.create(product_id=product_id, **validated_data)
 
 
 class SimpleProductSerializer(serializers.ModelSerializer):
@@ -59,7 +72,7 @@ class CartSerializer(serializers.ModelSerializer):
     items = CartItemSerializer(many=True, read_only=True)
     total_price = serializers.SerializerMethodField()
 
-    def get_total_price(self, cart: Cart):
+    def get_total_price(self, cart):
         return sum([item.quantity * item.product.unit_price for item in cart.items.all()])
 
     class Meta:
@@ -82,14 +95,12 @@ class AddCartItemSerializer(serializers.ModelSerializer):
         quantity = self.validated_data['quantity']
 
         try:
-            # update an existing item
             cart_item = CartItem.objects.get(
                 cart_id=cart_id, product_id=product_id)
             cart_item.quantity += quantity
             cart_item.save()
             self.instance = cart_item
         except CartItem.DoesNotExist:
-            # Create a new item
             self.instance = CartItem.objects.create(
                 cart_id=cart_id, **self.validated_data)
 
@@ -119,11 +130,10 @@ class OrderItemSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = OrderItem
-        fields = ['id', 'product', 'quantity', 'unit_price']
+        fields = ['id', 'product', 'unit_price', 'quantity']
 
 
 class OrderSerializer(serializers.ModelSerializer):
-    # make sure to set the related name to items in OrderItems model with foreign key
     items = OrderItemSerializer(many=True)
 
     class Meta:
@@ -143,14 +153,13 @@ class CreateOrderSerializer(serializers.Serializer):
     def validate_cart_id(self, cart_id):
         if not Cart.objects.filter(pk=cart_id).exists():
             raise serializers.ValidationError(
-                'No cart with the given id was found')
+                'No cart with the given ID was found.')
         if CartItem.objects.filter(cart_id=cart_id).count() == 0:
-            raise serializers.ValidationError('The cart is empty')
+            raise serializers.ValidationError('The cart is empty.')
         return cart_id
 
     def save(self, **kwargs):
         with transaction.atomic():
-
             cart_id = self.validated_data['cart_id']
 
             customer = Customer.objects.get(
@@ -168,10 +177,9 @@ class CreateOrderSerializer(serializers.Serializer):
                     quantity=item.quantity
                 ) for item in cart_items
             ]
-
             OrderItem.objects.bulk_create(order_items)
 
-            CartItem.objects.filter(pk=cart_id).delete()
+            Cart.objects.filter(pk=cart_id).delete()
 
             order_created.send_robust(self.__class__, order=order)
 

@@ -4,6 +4,8 @@ from django.core.validators import MinValueValidator
 from django.db import models
 from uuid import uuid4
 
+from store import validators
+
 
 class Promotion(models.Model):
     description = models.CharField(max_length=255)
@@ -43,6 +45,13 @@ class Product(models.Model):
         ordering = ['title']
 
 
+class ProductImage(models.Model):
+    product = models.ForeignKey(
+        Product, on_delete=models.CASCADE, related_name='images')
+    image = models.ImageField(upload_to='store/images',
+                              validators=[validators.validate_file_size])
+
+
 class Customer(models.Model):
     MEMBERSHIP_BRONZE = 'B'
     MEMBERSHIP_SILVER = 'S'
@@ -73,6 +82,9 @@ class Customer(models.Model):
 
     class Meta:
         ordering = ['user__first_name', 'user__last_name']
+        permissions = [
+            ('view_history', 'Can view history')
+        ]
 
 
 class Order(models.Model):
@@ -122,7 +134,8 @@ class CartItem(models.Model):
         Cart, on_delete=models.CASCADE, related_name='items')
     product = models.ForeignKey(Product, on_delete=models.CASCADE)
     quantity = models.PositiveSmallIntegerField(
-        validators=[MinValueValidator(1)])
+        validators=[MinValueValidator(1)]
+    )
 
     class Meta:
         unique_together = [['cart', 'product']]

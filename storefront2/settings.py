@@ -11,6 +11,7 @@ https://docs.djangoproject.com/en/4.0/ref/settings/
 """
 
 from datetime import timedelta
+import os
 from pathlib import Path
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
@@ -39,6 +40,7 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'django_filters',
+    "corsheaders",
     'rest_framework',
     'djoser',
     'playground',
@@ -50,6 +52,7 @@ INSTALLED_APPS = [
 ]
 
 MIDDLEWARE = [
+    "corsheaders.middleware.CorsMiddleware",
     "debug_toolbar.middleware.DebugToolbarMiddleware",
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
@@ -87,10 +90,10 @@ WSGI_APPLICATION = 'storefront2.wsgi.application'
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.mysql',
-        'NAME': 'storefront2',
+        'NAME': 'storefront3',
         'HOST': 'localhost',
         'USER': 'root',
-        'PASSWORD': 'myPassword',
+        'PASSWORD': 'MyPassword',
     }
 }
 
@@ -131,6 +134,9 @@ USE_TZ = True
 
 STATIC_URL = 'static/'
 
+MEDIA_URL = 'media/'
+MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
+
 # Default primary key field type
 # https://docs.djangoproject.com/en/4.0/ref/settings/#default-auto-field
 
@@ -140,6 +146,11 @@ INTERNAL_IPS = [
     # ...
     "127.0.0.1",
     # ...
+]
+
+CORS_ALLOWED_ORIGINS = [
+    'http://localhost:8001',
+    'http://127.0.0.0.1:8001',
 ]
 
 REST_FRAMEWORK = {
@@ -165,3 +176,17 @@ DJOSER = {
         'current_user': 'core.serializers.UserSerializer',
     }
 }
+
+EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+EMAIL_HOST = 'localhost'
+EMAIL_HOST_USER = ''
+EMAIL_HOST_PASSWORD = ''
+EMAIL_PORT = 2525
+DEFAULT_FROM_EMAIL = 'from@akuma.com'
+
+ADMINS = [
+    ('Akuma', 'admin@akuma.com')
+]
+
+
+CELERY_BROKER_URL = 'redis://localhost:6379/1'
